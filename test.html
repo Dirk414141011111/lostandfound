@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>智能失物招领系统 v2.0</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            font-family: Arial, sans-serif; 
+            background-color: #f5f5f5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1 {
+            margin: 0 0 20px 0;
+        }
+
+        #chat-container { 
+            flex: 1;
+            border: 1px solid #ddd; 
+            padding: 20px; 
+            margin-bottom: 20px; 
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            height: calc(100vh - 200px);
+        }
+
+        #input-container { 
+            display: flex; 
+            gap: 10px; 
+            margin-bottom: 10px;
+            position: sticky;
+            bottom: 0;
+            background-color: #f5f5f5;
+            padding: 10px 0;
+        }
+
+        #message { 
+            flex-grow: 1; 
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        button { 
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .message-container {
+            margin: 10px 0;
+            clear: both;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .message-container.user-container {
+            flex-direction: row-reverse;
+        }
+
+        .message-content {
+            max-width: 70%;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            background: #f5f5f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+        }
+
+        .message-bubble {
+            padding: 10px 15px;
+            border-radius: 15px;
+            position: relative;
+        }
+
+        .user-message {
+            background-color: #e7ffd9;
+            margin-right: 10px;
+            border-top-right-radius: 5px;
+        }
+
+        .ai-message {
+            background-color: #f0f0f0;
+            margin-left: 10px;
+            border-top-left-radius: 5px;
+        }
+
+        .thinking {
+            display: flex;
+            gap: 4px;
+            padding: 10px;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            background: #666;
+            border-radius: 50%;
+            animation: bounce 1.5s infinite;
+        }
+
+        .dot:nth-child(2) { animation-delay: 0.2s; }
+        .dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes bounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-6px); }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        #chat-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #chat-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        #chat-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        #chat-container::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            #chat-container {
+                height: calc(100vh - 160px);
+            }
+            
+            h1 {
+                font-size: 1.5em;
+                margin-bottom: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>智能失物招领系统 v2.0</h1>
+    <div id="chat-container"></div>
+    <div id="input-container">
+        <input type="text" id="message" placeholder="输入消息...">
+        <button onclick="sendMessage()">发送</button>
+    </div>
+
+    <script>
+        const chatContainer = document.getElementById('chat-container');
+        const messageInput = document.getElementById('message');
+        const userAvatar = '👦';
+        const aiAvatar = '🤖';
+        let chatHistory = [];
+
+        // API配置
+        const API_CONFIG = {
+            ERNIE_API_KEY: "nY7QmDOqCeU6KPEXSQd51zCG",
+            ERNIE_SECRET_KEY: "8rhP1FyP1d79X3m5IhTe4SUtSWYPJGvV",
+            API_ENDPOINT: " https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/completions?access_token="+'24.5812e3fbe90d36a4e532876a920e6c22.2592000.1736839496.282335-116151003'       
+        };
+
+        function showThinking() {
+            return `
+                <div class="message-container" id="thinking">
+                    <div class="avatar">${aiAvatar}</div>
+                    <div class="message-content">
+                        <div class="thinking">
+                            <div class="dot"></div>
+                            <div class="dot"></div>
+                            <div class="dot"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 添加自动滚动函数
+        function scrollToBottom() {
+            const chatContainer = document.getElementById('chat-container');
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // 修改sendMessage函数
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            // 显示用户消息
+            const userMessage = document.createElement('div');
+            userMessage.className = 'message-container user-container';
+            userMessage.innerHTML = `
+                <div class="avatar">${userAvatar}</div>
+                <div class="message-content">
+                    <div class="message-bubble user-message">${message}</div>
+                </div>`;
+            chatContainer.appendChild(userMessage);
+            
+            // 发送消息后滚动到底部
+            scrollToBottom();
+            
+            // 添加用户消息到历史记录
+            chatHistory.push({role: 'user', content: message});
+
+            // 显示思考动画
+            const thinkingElement = document.createElement('div');
+            thinkingElement.innerHTML = showThinking();
+            chatContainer.appendChild(thinkingElement);
+            scrollToBottom();
+            
+            // 清空输入
+            messageInput.value = '';
+
+            try {
+                const response = await fetch(API_CONFIG.API_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        messages: chatHistory
+                    })
+                });
+                
+                const result = await response.json();
+                
+                // 移除思考动画
+                const thinking = document.getElementById('thinking');
+                if (thinking) thinking.remove();
+                
+                // 显示AI回复
+                const aiResponse = document.createElement('div');
+                aiResponse.className = 'message-container';
+                const messageText = result.result || result.message || JSON.stringify(result);
+                aiResponse.innerHTML = `
+                    <div class="avatar">${aiAvatar}</div>
+                    <div class="message-content">
+                        <div class="message-bubble ai-message">${messageText}</div>
+                    </div>`;
+                chatContainer.appendChild(aiResponse);
+                
+                // AI回复后滚动到底部
+                scrollToBottom();
+                
+                // 添加AI回复到历史记录
+                chatHistory.push({role: 'assistant', content: messageText});
+                
+            } catch (error) {
+                console.error('Error:', error);
+                const thinking = document.getElementById('thinking');
+                if (thinking) thinking.remove();
+                
+                const errorMessage = document.createElement('div');
+                errorMessage.className = 'message-container';
+                errorMessage.innerHTML = `
+                    <div class="avatar">${aiAvatar}</div>
+                    <div class="message-content">
+                        <div class="message-bubble ai-message" style="color: red;">
+                            错误: ${error.message}
+                        </div>
+                    </div>`;
+                chatContainer.appendChild(errorMessage);
+                scrollToBottom();
+            }
+        }
+
+        // 处理回车键
+        messageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // 定义初始化提示语
+        const INIT_PROMPT = `请你扮演一位失物招领员，名叫小海燕姐姐，这是一些失物以及他们的特征描述，你需要学习这些内容，然后准备接受10岁先朋友的询问，注意回答问题的语气要符合10岁小朋友的语言特点。首先，你先一个一个询问他们失物的特征。并且你要根据回答确定这里面是否有他的东西，如果特征不匹配，只需要告诉他东西不在这。如果特征匹配，然后告诉他结果，并且告诉他这个东西放在什么地方，密码是什么，并再次提问对方还有没有丢别的东西。
+
+失物清单：
+1.米白色的积木，1号抽屉   
+2.橡皮：黄色、米菲牌，放在了3号抽屉    
+3.胶布：粉色、单面胶布 放在2号抽屉`;
+
+        // 修改初始化函数
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                // 显示思考动画
+                const thinkingElement = document.createElement('div');
+                thinkingElement.innerHTML = showThinking();
+                chatContainer.appendChild(thinkingElement);
+
+                // 发送初始化消息
+                const response = await fetch(API_CONFIG.API_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        messages: [{
+                            role: 'user',
+                            content: INIT_PROMPT
+                        }]
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                // 移除思考动画
+                const thinking = document.getElementById('thinking');
+                if (thinking) thinking.remove();
+                
+                // 将初始设定添加到历史记录
+                chatHistory.push({role: 'user', content: INIT_PROMPT});
+                
+                // 显示AI的开场白
+                const aiResponse = document.createElement('div');
+                aiResponse.className = 'message-container';
+                aiResponse.innerHTML = `
+                    <div class="avatar">${aiAvatar}</div>
+                    <div class="message-content">
+                        <div class="message-bubble ai-message">
+                            你好呀，小朋友！我是小海燕姐姐，是这里的失物招领员。
+                            听说你丢了东西吗？告诉姐姐，你丢的是什么样的东西呢？
+                        </div>
+                    </div>`;
+                chatContainer.appendChild(aiResponse);
+                
+                // 将AI回复添加到历史记录
+                chatHistory.push({
+                    role: 'assistant', 
+                    content: '你好呀，小朋友！我是小海燕姐姐，是这里的失物招领员。听说你丢了东西吗？告诉姐姐，你丢的是什么样的东西呢？'
+                });
+                
+                // 在显示AI开场白后滚动到底部
+                scrollToBottom();
+                
+            } catch (error) {
+                console.error('初始化失败:', error);
+                const thinking = document.getElementById('thinking');
+                if (thinking) thinking.remove();
+                
+                const errorMessage = document.createElement('div');
+                errorMessage.className = 'message-container';
+                errorMessage.innerHTML = `
+                    <div class="avatar">${aiAvatar}</div>
+                    <div class="message-content">
+                        <div class="message-bubble ai-message" style="color: red;">
+                            系统初始化失败，请刷新页面重试。<br>
+                            错误信息: ${error.message}
+                        </div>
+                    </div>`;
+                chatContainer.appendChild(errorMessage);
+                scrollToBottom();
+            }
+        });
+    </script>
+</body>
+</html>
